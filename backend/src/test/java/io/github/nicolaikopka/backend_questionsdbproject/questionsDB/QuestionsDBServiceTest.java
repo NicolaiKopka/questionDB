@@ -2,13 +2,9 @@ package io.github.nicolaikopka.backend_questionsdbproject.questionsDB;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class QuestionsDBServiceTest {
 

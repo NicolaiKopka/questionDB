@@ -1,7 +1,6 @@
 package io.github.nicolaikopka.backend_questionsdbproject.questionsDB;
 
 
-import lombok.Data;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 

@@ -9,10 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Collection;
 
 @RestController
-@RequestMapping("/questions")
+@RequestMapping("/api/questions")
 @RequiredArgsConstructor
 public class QuestionsDBController {
-
     private final QuestionsDBService questionsDBService;
 
     @GetMapping()
