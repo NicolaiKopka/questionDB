@@ -1,12 +1,15 @@
 package io.github.nicolaikopka.backend_questionsdbproject.questionsDB;
 
+import io.github.nicolaikopka.backend_questionsdbproject.users.LoginResponse;
+import io.github.nicolaikopka.backend_questionsdbproject.users.LoginUser;
+import io.github.nicolaikopka.backend_questionsdbproject.users.MyUser;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.util.MultiValueMap;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class QuestionDBControllerTest {
@@ -20,16 +23,49 @@ class QuestionDBControllerTest {
         Question question2 = new Question("question2", "answer2");
         Question question3 = new Question("question3", "answer3");
 
+        //setUser and Register
+        MyUser testUser = new MyUser();
+        testUser.setUsername("testUser");
+        testUser.setPassword("testPassword");
+
+        ResponseEntity<Void> addUserResponse = restTemplate.postForEntity("/api/user", testUser, Void.class);
+        Assertions.assertThat(addUserResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        //Login User
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUsername("testUser");
+        loginUser.setPassword("testPassword");
+
+        ResponseEntity<LoginResponse> loginResponse = restTemplate.postForEntity("/api/login", loginUser, LoginResponse.class);
+        Assertions.assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Assertions.assertThat(loginResponse.getBody().getJwtToken()).isNotBlank();
+
+        //Create Auth Header
+        String token = loginResponse.getBody().getJwtToken();
+
         //Test Post
-        ResponseEntity<Question> addResponse = restTemplate.postForEntity("/questions", question1, Question.class);
+        // TODO add body
+        ResponseEntity<Question> addResponse = restTemplate.exchange("/api/questions",
+                HttpMethod.POST,
+                new HttpEntity<>(question1, createHeader(token)),
+                Question.class);
         Assertions.assertThat(addResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        ResponseEntity<Question> addResponse2 = restTemplate.postForEntity("/questions", question2, Question.class);
+        ResponseEntity<Question> addResponse2 = restTemplate.exchange("/api/questions",
+                HttpMethod.POST,
+                new HttpEntity<>(question2, createHeader(token)),
+                Question.class);
         Assertions.assertThat(addResponse2.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        ResponseEntity<Question> addResponse3 = restTemplate.postForEntity("/questions", question3, Question.class);
+        ResponseEntity<Question> addResponse3 = restTemplate.exchange("/api/questions",
+                HttpMethod.POST,
+                new HttpEntity<>(question3, createHeader(token)),
+                Question.class);
         Assertions.assertThat(addResponse3.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         //Test Get All
-        ResponseEntity<Question[]> getAllResponse = restTemplate.getForEntity("/questions", Question[].class);
+        ResponseEntity<Question[]> getAllResponse = restTemplate.exchange("/api/questions",
+                HttpMethod.GET,
+                new HttpEntity<>(createHeader(token)),
+                Question[].class);
         Assertions.assertThat(getAllResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         Assertions.assertThat(getAllResponse.getBody()[1].getQuestion()).isEqualTo("question2");
         Assertions.assertThat(getAllResponse.getBody().length).isEqualTo(3);
@@ -38,21 +74,52 @@ class QuestionDBControllerTest {
         Question editedQuestion = getAllResponse.getBody()[1];
         editedQuestion.setQuestion("editedQuestion");
         editedQuestion.setAnswer("editedAnswer");
-        restTemplate.put("/questions", editedQuestion);
+        ResponseEntity<Void> getPutResponse = restTemplate.exchange("/api/questions",
+                HttpMethod.PUT,
+                new HttpEntity<>(editedQuestion, createHeader(token)),
+                Void.class);
+        Assertions.assertThat(getPutResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         //Test GetById and Resolve Put
-        ResponseEntity<Question> editedById = restTemplate.getForEntity("/questions/" + editedQuestion.getId(), Question.class);
-        Assertions.assertThat(editedById.getStatusCode()).isEqualTo(HttpStatus.OK);
-        Assertions.assertThat(editedById.getBody().getQuestion()).isEqualTo("editedQuestion");
-        Assertions.assertThat(editedById.getBody().getAnswer()).isEqualTo("editedAnswer");
+        ResponseEntity<Question> getByIdResponse = restTemplate.exchange(
+                "/api/questions/" + editedQuestion.getId(),
+                HttpMethod.GET,
+                new HttpEntity<>(createHeader(token)),
+                Question.class);
+        Assertions.assertThat(getByIdResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Assertions.assertThat(getByIdResponse.getBody().getQuestion()).isEqualTo("editedQuestion");
+        Assertions.assertThat(getByIdResponse.getBody().getAnswer()).isEqualTo("editedAnswer");
 
         //Test Delete
-        restTemplate.delete("/questions/" + addResponse.getBody().getId());
-        restTemplate.delete("/questions/" + addResponse2.getBody().getId());
-        ResponseEntity<Question[]> getAllResponseAfterDelete = restTemplate.getForEntity("/questions", Question[].class);
+        ResponseEntity<Question> getDeleteResponse = restTemplate.exchange(
+                "/api/questions/" + addResponse.getBody().getId(),
+                HttpMethod.DELETE,
+                new HttpEntity<>(createHeader(token)),
+                Question.class);
+        Assertions.assertThat(getDeleteResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ResponseEntity<Question> getDeleteResponse2 = restTemplate.exchange(
+                "/api/questions/" + addResponse2.getBody().getId(),
+                HttpMethod.DELETE,
+                new HttpEntity<>(createHeader(token)),
+                Question.class);
+        Assertions.assertThat(getDeleteResponse2.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<Question[]> getAllResponseAfterDelete = restTemplate.exchange(
+                "/api/questions",
+                HttpMethod.GET,
+                new HttpEntity<>(createHeader(token)),
+                Question[].class);
+
         Assertions.assertThat(getAllResponseAfterDelete.getStatusCode()).isEqualTo(HttpStatus.OK);
         Assertions.assertThat(getAllResponseAfterDelete.getBody().length).isEqualTo(1);
         Assertions.assertThat(getAllResponseAfterDelete.getBody()[0].getQuestion()).isEqualTo("question3");
 
+    }
+
+    private HttpHeaders createHeader(String token) {
+        String headerValue = "Bearer " + token;
+        HttpHeaders header = new HttpHeaders();
+        header.set("Authorization", headerValue);
+        return header;
     }
 }
